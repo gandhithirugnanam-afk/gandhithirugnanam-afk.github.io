@@ -1,0 +1,1854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FED-FinExcel · Advisor Edition</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<meta name="ext-resource-dependency" content="engine.js" data-resource-id="engineJs" />
+<meta name="ext-resource-dependency" content="state-tax.js" data-resource-id="stateTaxJs" />
+<meta name="ext-resource-dependency" content="components.jsx" data-resource-id="componentsJsx" />
+<meta name="ext-resource-dependency" content="tweaks-panel.jsx" data-resource-id="tweaksPanelJsx" />
+<script src="engine.js"></script>
+<script src="state-tax.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { font-family: 'DM Sans', system-ui, sans-serif; overflow: hidden; }
+  input[type=range] { -webkit-appearance: none; height: 4px; border-radius: 4px; outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; cursor: pointer; }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23667799'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(150,160,180,0.3); border-radius: 3px; }
+  .theme-a { --bg:#F4F6FA; --surface:#FFFFFF; --sidebar:#0F1F3C; --sidebar-hover:rgba(255,255,255,0.08); --sidebar-active:rgba(201,168,76,0.18); --sidebar-txt:rgba(255,255,255,0.75); --sidebar-active-txt:#C9A84C; --sidebar-border:rgba(255,255,255,0.08); --accent1:#1B3A6B; --accent2:#C9A84C; --text:#0F1F3C; --text-muted:#667799; --border:#DDE3ED; --card:#FFFFFF; --card-border:#E4E9F2; --success:#2E7D32; --warning:#C9A84C; --danger:#B71C1C; --header-bg:#FFFFFF; }
+  .theme-b { --bg:#0D1117; --surface:#161B22; --sidebar:#0A0E14; --sidebar-hover:rgba(255,255,255,0.05); --sidebar-active:rgba(201,168,76,0.12); --sidebar-txt:rgba(170,190,220,0.8); --sidebar-active-txt:#C9A84C; --sidebar-border:rgba(255,255,255,0.06); --accent1:#C9A84C; --accent2:#4A90D9; --text:#E0ECFF; --text-muted:#7788AA; --border:#21273A; --card:#161B22; --card-border:#21273A; --success:#4CAF50; --warning:#C9A84C; --danger:#E05353; --header-bg:#0D1117; }
+  @media print {
+    .no-print { display: none !important; }
+    body { overflow: visible !important; }
+    #root { height: auto !important; overflow: visible !important; }
+    .print-page { page-break-after: always; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="components.jsx" type="text/babel"></script>
+<script src="tweaks-panel.jsx" type="text/babel"></script>
+<script type="text/babel">
+
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+const NAV_ZONES = [
+  { id: 'dashboard',    label: 'Dashboard',           icon: '◈', zone: 'Overview' },
+  { id: 'quickstart',  label: 'Quick Start Wizard',   icon: '⚡', zone: 'Overview' },
+  { id: 'calculator',  label: 'Full Calculator',      icon: '⊞', zone: 'Inputs' },
+  { id: 'projection',  label: 'Net Worth Projection',  icon: '↗', zone: 'Outputs' },
+  { id: 'tax',         label: 'Annual Tax Engine',    icon: '⊛', zone: 'Outputs' },
+  { id: 'statetax',    label: 'State Tax Engine',     icon: '⊕', zone: 'Outputs' },
+  { id: 'roth',        label: 'Roth Conversion',      icon: '⟲', zone: 'Outputs' },
+  { id: 'healthcare',  label: 'Healthcare Bridge',    icon: '✚', zone: 'Planning' },
+  { id: 'waterfall',   label: 'Waterfall Budget',     icon: '≋', zone: 'Planning' },
+  { id: 'scenarios',   label: 'Scenarios & Risk',     icon: '⟡', zone: 'Planning' },
+  { id: 'ltc',         label: 'LTC Scenarios',        icon: '⊗', zone: 'Planning' },
+  { id: 'estate',      label: 'Estate & Legacy',      icon: '◉', zone: 'Planning' },
+  { id: 'presets',     label: 'Preset Profiles',      icon: '⊙', zone: 'Reference' },
+  { id: 'report',      label: 'Printable Report',     icon: '⊟', zone: 'Reference' },
+  { id: 'glossary',    label: 'Glossary',             icon: '≡',  zone: 'Reference' },
+];
+
+const DEFAULTS = window.FEDEngine.DEFAULT_INPUTS;
+
+const WIZARD_STEPS = [
+  { id: 'personal',   label: 'Personal',   subtitle: 'Basic info' },
+  { id: 'income',     label: 'Income',     subtitle: 'Salary & accounts' },
+  { id: 'pension',    label: 'Pension',    subtitle: 'FERS details' },
+  { id: 'ss',         label: 'Soc. Sec.',  subtitle: 'Benefits' },
+  { id: 'spending',   label: 'Spending',   subtitle: 'Retirement budget' },
+  { id: 'healthcare', label: 'Healthcare', subtitle: 'FEHB & Medicare' },
+  { id: 'realestate', label: 'Assets',     subtitle: 'Home & liquid' },
+  { id: 'results',    label: 'Results',    subtitle: 'Your plan' },
+];
+
+// ── MAIN APP ──────────────────────────────────────────────────────
+function App() {
+  const [theme, setTheme] = useState('a');
+  const [navCollapsed, setNavCollapsed] = useState(false);
+  const [activeSection, setActiveSection] = useState('dashboard');
+  const [inputs, setInputs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fed_inputs') || 'null') || DEFAULTS; }
+    catch { return DEFAULTS; }
+  });
+  const [wizardStep, setWizardStep] = useState(0);
+  const [showTweaks, setShowTweaks] = useState(false);
+
+  useEffect(() => { localStorage.setItem('fed_inputs', JSON.stringify(inputs)); }, [inputs]);
+
+  const results = useMemo(() => {
+    try { return window.FEDEngine.compute(inputs); }
+    catch (e) { console.error('Compute error:', e); return null; }
+  }, [inputs]);
+
+  const setInput = useCallback((key, val) => setInputs(prev => ({ ...prev, [key]: val })), []);
+  const isDark = theme === 'b';
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === '__activate_edit_mode') setShowTweaks(true);
+      if (e.data?.type === '__deactivate_edit_mode') setShowTweaks(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  const sidebarW = navCollapsed ? 56 : 228;
+  const zones = [...new Set(NAV_ZONES.map(n => n.zone))];
+
+  return (
+    <div className={`theme-${theme}`} style={{
+      display: 'flex', height: '100vh', overflow: 'hidden',
+      background: 'var(--bg)', color: 'var(--text)',
+      fontFamily: "'DM Sans', system-ui, sans-serif",
+    }}>
+      {/* SIDEBAR */}
+      <aside className="no-print" style={{
+        width: sidebarW, flexShrink: 0,
+        background: 'var(--sidebar)', display: 'flex', flexDirection: 'column',
+        transition: 'width 0.25s ease',
+        borderRight: '1px solid var(--sidebar-border)',
+        overflow: 'hidden', position: 'relative', zIndex: 10,
+      }}>
+        <div style={{
+          padding: navCollapsed ? '18px 0' : '20px 16px 16px',
+          borderBottom: '1px solid var(--sidebar-border)',
+          display: 'flex', alignItems: 'center', gap: 10,
+          justifyContent: navCollapsed ? 'center' : 'space-between',
+        }}>
+          {!navCollapsed && (
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--accent2)', letterSpacing: '0.04em' }}>FED-FinExcel</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Advisor Edition</div>
+            </div>
+          )}
+          <button onClick={() => setNavCollapsed(!navCollapsed)} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'rgba(255,255,255,0.4)', fontSize: 16, padding: 4, lineHeight: 1, flexShrink: 0,
+          }}>{navCollapsed ? '›' : '‹'}</button>
+        </div>
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+          {zones.map(zone => (
+            <div key={zone}>
+              {!navCollapsed && (
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                  color: 'rgba(255,255,255,0.25)', padding: '10px 16px 4px' }}>{zone}</div>
+              )}
+              {NAV_ZONES.filter(n => n.zone === zone).map(item => {
+                const active = activeSection === item.id;
+                return (
+                  <button key={item.id} onClick={() => setActiveSection(item.id)} style={{
+                    width: '100%', display: 'flex', alignItems: 'center',
+                    gap: 10, padding: navCollapsed ? '10px 0' : '9px 16px',
+                    background: active ? 'var(--sidebar-active)' : 'transparent',
+                    border: 'none', cursor: 'pointer', textAlign: 'left',
+                    color: active ? 'var(--sidebar-active-txt)' : 'var(--sidebar-txt)',
+                    fontFamily: 'inherit', fontSize: 13, fontWeight: active ? 600 : 400,
+                    transition: 'all 0.15s', justifyContent: navCollapsed ? 'center' : 'flex-start',
+                    borderLeft: active ? '3px solid var(--accent2)' : '3px solid transparent',
+                  }} title={navCollapsed ? item.label : undefined}>
+                    <span style={{ fontSize: 15, flexShrink: 0 }}>{item.icon}</span>
+                    {!navCollapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+        {!navCollapsed && results && (
+          <div style={{ padding: '12px 16px', borderTop: '1px solid var(--sidebar-border)', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+            <div style={{ fontWeight: 600, color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>{results.name}</div>
+            <div>Age {results.currentAge} · Retire {results.retireAge}</div>
+          </div>
+        )}
+      </aside>
+
+      {/* MAIN */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <header className="no-print" style={{
+          height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 24px', background: 'var(--header-bg)',
+          borderBottom: '1px solid var(--border)', flexShrink: 0,
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+            {NAV_ZONES.find(n => n.id === activeSection)?.label}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {results && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 16 }}>
+                <span>Net Worth: <strong style={{ color: isDark ? '#C9A84C' : '#1B3A6B' }}>{fmt.currency(results.netWorth, true)}</strong></span>
+                <span>MC: <strong style={{ color: results.mcSuccess >= 80 ? 'var(--success)' : 'var(--danger)' }}>{results.mcSuccess}%</strong></span>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 4, background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', borderRadius: 20, padding: 3 }}>
+              {['a','b'].map(t => (
+                <button key={t} onClick={() => setTheme(t)} style={{
+                  padding: '4px 12px', borderRadius: 16, border: 'none', cursor: 'pointer',
+                  background: theme === t ? (t === 'a' ? '#1B3A6B' : '#C9A84C') : 'transparent',
+                  color: theme === t ? '#FFF' : 'var(--text-muted)', fontSize: 11, fontWeight: 600,
+                  fontFamily: 'inherit', transition: 'all 0.2s',
+                }}>{t === 'a' ? 'Navy' : 'Fintech'}</button>
+              ))}
+            </div>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--accent2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 700, color: '#0F1F3C', flexShrink: 0 }}>
+              {(inputs.name || 'F')[0]}
+            </div>
+          </div>
+        </header>
+
+        <main style={{ flex: 1, overflowY: 'auto', padding: activeSection === 'report' ? 0 : '24px' }}>
+          {results ? (
+            <>
+              {activeSection === 'dashboard'   && <DashboardView results={results} inputs={inputs} setInput={setInput} isDark={isDark} />}
+              {activeSection === 'quickstart'  && <WizardView inputs={inputs} setInput={setInput} results={results} step={wizardStep} setStep={setWizardStep} isDark={isDark} setSection={setActiveSection} />}
+              {activeSection === 'calculator'  && <CalculatorView inputs={inputs} setInput={setInput} results={results} isDark={isDark} />}
+              {activeSection === 'projection'  && <ProjectionView results={results} isDark={isDark} />}
+              {activeSection === 'tax'         && <TaxView results={results} inputs={inputs} setInput={setInput} isDark={isDark} />}
+              {activeSection === 'statetax'    && <StateTaxView results={results} inputs={inputs} setInput={setInput} isDark={isDark} />}
+              {activeSection === 'roth'        && <RothView results={results} inputs={inputs} setInput={setInput} isDark={isDark} />}
+              {activeSection === 'healthcare'  && <HealthcareView results={results} inputs={inputs} setInput={setInput} isDark={isDark} />}
+              {activeSection === 'waterfall'   && <WaterfallView results={results} inputs={inputs} setInput={setInput} isDark={isDark} />}
+              {activeSection === 'scenarios'   && <ScenariosView results={results} inputs={inputs} setInput={setInput} isDark={isDark} />}
+              {activeSection === 'ltc'         && <LTCView results={results} inputs={inputs} setInput={setInput} isDark={isDark} />}
+              {activeSection === 'estate'      && <EstateView results={results} inputs={inputs} isDark={isDark} />}
+              {activeSection === 'presets'     && <PresetsView inputs={inputs} setInputs={setInputs} isDark={isDark} setSection={setActiveSection} />}
+              {activeSection === 'report'      && <PrintableReport results={results} inputs={inputs} isDark={isDark} />}
+              {activeSection === 'glossary'    && <GlossaryView isDark={isDark} />}
+            </>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>⊛</div>
+                <div>Computing…</div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {showTweaks && (
+        <TweaksPanel onClose={() => { setShowTweaks(false); window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*'); }}>
+          <TweakSection title="Theme">
+            <TweakRadio label="Variation" value={theme} onChange={setTheme}
+              options={[{ value: 'a', label: 'Navy' }, { value: 'b', label: 'Fintech' }]} />
+          </TweakSection>
+          <TweakSection title="Navigation">
+            <TweakToggle label="Collapse sidebar" value={navCollapsed} onChange={setNavCollapsed} />
+          </TweakSection>
+          <TweakSection title="Client">
+            <TweakText label="Client name" value={inputs.name} onChange={v => setInput('name', v)} />
+            <TweakNumber label="Retirement age" value={inputs.retireAge} min={50} max={70} onChange={v => setInput('retireAge', v)} />
+          </TweakSection>
+        </TweaksPanel>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// STATE TAX ENGINE VIEW
+// ════════════════════════════════════════════════════════════════
+function StateTaxView({ results: r, inputs, setInput, isDark }) {
+  const theme = isDark ? 'dark' : 'light';
+  const { computeStateTax, rankStates, STATE_NAMES } = window.StateTaxEngine;
+
+  const scenario = {
+    pension: r.pension?.net || 0,
+    ssIncome: r.yourSS + r.spouseSS,
+    iraDraws: Math.max(0, inputs.retireSpending - r.incomeFloor) * 0.7,
+    dividends: 0,
+    ltcg: 0,
+    age: inputs.retireAge,
+    filing: inputs.filingStatus,
+  };
+
+  const currentState = inputs.retireState || 'Pennsylvania';
+  const currentResult = computeStateTax(currentState, scenario);
+  const ranked = useMemo(() => rankStates(scenario).slice(0, 15), [inputs.retireState, r.pension]);
+
+  const [compareState, setCompareState] = useState('Florida');
+  const compareResult = computeStateTax(compareState, scenario);
+
+  const noTaxStates = ['Alaska','Florida','Nevada','New Hampshire','South Dakota','Tennessee','Texas','Wyoming'];
+
+  return (
+    <div>
+      <SectionHeader title="State Tax Engine" subtitle="50-state retirement tax analysis — fully sourced from workbook library" theme={theme} />
+
+      {/* Current state + compare */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        {/* Current state */}
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Your Retirement State</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent2)', marginTop: 2 }}>{currentState}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Est. State Tax</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: currentResult.totalTax === 0 ? 'var(--success)' : 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+                {fmt.currency(currentResult.totalTax)}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmt.pct(currentResult.effectiveRate)} effective rate</div>
+            </div>
+          </div>
+
+          <div style={{ background: isDark ? 'rgba(255,255,255,0.03)' : '#F8F9FC', borderRadius: 8, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Treatment</div>
+            {[
+              { label: 'System', value: currentResult.system || '—' },
+              { label: 'Top rate', value: fmt.pct(currentResult.topRate || 0) },
+              { label: 'SS taxed?', value: window.StateTaxEngine.STATE_LIBRARY[currentState]?.taxSS === 0 ? '✓ Exempt' : window.StateTaxEngine.STATE_LIBRARY[currentState]?.taxSS === 0.5 ? 'Partial' : 'Taxed' },
+              { label: 'Pension taxed?', value: window.StateTaxEngine.STATE_LIBRARY[currentState]?.taxPension === 0 ? '✓ Exempt' : window.StateTaxEngine.STATE_LIBRARY[currentState]?.taxPension === 0.5 ? 'Partial' : 'Taxed' },
+              { label: 'IRA/TSP taxed?', value: window.StateTaxEngine.STATE_LIBRARY[currentState]?.taxIRA === 0 ? '✓ Exempt' : 'Taxed' },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
+                <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                <span style={{ fontWeight: 600, color: item.value.startsWith('✓') ? 'var(--success)' : 'var(--text)' }}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, textWrap: 'pretty' }}>
+            {currentResult.note}
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <Field label="Change retirement state" value={currentState} theme={theme}
+              onChange={v => setInput('retireState', v)}
+              options={STATE_NAMES.map(s => ({ value: s, label: s }))} />
+          </div>
+        </div>
+
+        {/* Compare state */}
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Compare With</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: isDark ? '#4A90D9' : '#1B3A6B', marginTop: 2 }}>{compareState}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Est. State Tax</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: compareResult.totalTax === 0 ? 'var(--success)' : 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+                {fmt.currency(compareResult.totalTax)}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmt.pct(compareResult.effectiveRate)} effective rate</div>
+            </div>
+          </div>
+
+          <div style={{ background: isDark ? 'rgba(255,255,255,0.03)' : '#F8F9FC', borderRadius: 8, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Treatment</div>
+            {[
+              { label: 'System', value: compareResult.system || '—' },
+              { label: 'Top rate', value: fmt.pct(compareResult.topRate || 0) },
+              { label: 'SS taxed?', value: window.StateTaxEngine.STATE_LIBRARY[compareState]?.taxSS === 0 ? '✓ Exempt' : window.StateTaxEngine.STATE_LIBRARY[compareState]?.taxSS === 0.5 ? 'Partial' : 'Taxed' },
+              { label: 'Pension taxed?', value: window.StateTaxEngine.STATE_LIBRARY[compareState]?.taxPension === 0 ? '✓ Exempt' : window.StateTaxEngine.STATE_LIBRARY[compareState]?.taxPension === 0.5 ? 'Partial' : 'Taxed' },
+              { label: 'IRA/TSP taxed?', value: window.StateTaxEngine.STATE_LIBRARY[compareState]?.taxIRA === 0 ? '✓ Exempt' : 'Taxed' },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
+                <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                <span style={{ fontWeight: 600, color: item.value.startsWith('✓') ? 'var(--success)' : 'var(--text)' }}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, textWrap: 'pretty', marginBottom: 14 }}>
+            {compareResult.note}
+          </div>
+
+          {compareResult.totalTax < currentResult.totalTax && (
+            <Alert type="success" theme={theme}>
+              Moving to {compareState} saves ~{fmt.currency(currentResult.totalTax - compareResult.totalTax)}/yr in state taxes.
+            </Alert>
+          )}
+          {compareResult.totalTax >= currentResult.totalTax && (
+            <Alert type="info" theme={theme}>
+              {compareState} costs ~{fmt.currency(compareResult.totalTax - currentResult.totalTax)}/yr more than {currentState}.
+            </Alert>
+          )}
+
+          <Field label="Compare with state" value={compareState} theme={theme}
+            onChange={setCompareState}
+            options={STATE_NAMES.map(s => ({ value: s, label: s }))} />
+        </div>
+      </div>
+
+      {/* No-tax states callout */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 10 }}>No Broad Income Tax States</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {noTaxStates.map(s => (
+            <span key={s} style={{
+              padding: '4px 12px', borderRadius: 20,
+              background: isDark ? 'rgba(76,175,80,0.15)' : 'rgba(46,125,50,0.1)',
+              border: '1px solid var(--success)',
+              color: 'var(--success)', fontSize: 12, fontWeight: 600,
+            }}>{s}</span>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>These states have no broad personal income tax — ideal for federal retirees with large pension + SS income.</div>
+      </div>
+
+      {/* Top 15 most tax-friendly */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Retirement Tax Ranking</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
+          Based on your income profile: {fmt.currency(scenario.pension)}/yr pension + {fmt.currency(scenario.ssIncome)}/yr SS + {fmt.currency(scenario.iraDraws)}/yr TSP draws
+        </div>
+        <DataTable theme={theme} compact
+          columns={[
+            { key: 'rank', label: '#' },
+            { key: 'state', label: 'State' },
+            { key: 'abbrev', label: 'Abbrev' },
+            { key: 'system', label: 'System' },
+            { key: 'topRate', label: 'Top Rate', align: 'right' },
+            { key: 'taxSS', label: 'SS', align: 'center' },
+            { key: 'taxPension', label: 'Pension', align: 'center' },
+            { key: 'taxIRA', label: 'IRA', align: 'center' },
+            { key: 'totalTax', label: 'Est. Annual Tax', align: 'right' },
+          ]}
+          rows={ranked.map((s, i) => ({
+            rank: i + 1,
+            state: s.state,
+            abbrev: s.abbrev,
+            system: s.system,
+            topRate: fmt.pct(s.topRate),
+            taxSS: s.taxSS === 0 ? '✓' : s.taxSS === 0.5 ? '½' : '✕',
+            taxPension: s.taxPension === 0 ? '✓' : s.taxPension === 0.5 ? '½' : '✕',
+            taxIRA: s.taxIRA === 0 ? '✓' : '✕',
+            totalTax: fmt.currency(s.totalTax),
+          }))}
+        />
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>
+          ✓ = Exempt · ½ = Partial · ✕ = Taxed · Disclaimer: Simplified planning estimates only. Consult a CPA for state-specific guidance.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// PRINTABLE REPORT
+// ════════════════════════════════════════════════════════════════
+function PrintableReport({ results: r, inputs, isDark }) {
+  const today = 'April 30, 2026';
+  const printStyle = {
+    background: '#FFFFFF', color: '#0F1F3C',
+    fontFamily: "'DM Sans', system-ui, sans-serif",
+    padding: '0', minHeight: '100vh',
+  };
+
+  return (
+    <div style={printStyle}>
+      {/* Print button */}
+      <div className="no-print" style={{
+        position: 'sticky', top: 0, background: '#1B3A6B', padding: '10px 32px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10,
+      }}>
+        <span style={{ color: '#C9A84C', fontWeight: 700, fontSize: 13 }}>Printable Report — {r.name}</span>
+        <button onClick={() => window.print()} style={{
+          padding: '7px 20px', background: '#C9A84C', border: 'none', borderRadius: 6,
+          fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#0F1F3C', fontFamily: 'inherit',
+        }}>Print / Save PDF</button>
+      </div>
+
+      <div style={{ maxWidth: 860, margin: '0 auto', padding: '40px 48px' }}>
+
+        {/* ── Page 1: Cover ── */}
+        <div className="print-page" style={{ marginBottom: 48 }}>
+          <div style={{ borderBottom: '3px solid #1B3A6B', paddingBottom: 20, marginBottom: 32 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#C9A84C', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>FED-FinExcel · Advisor Edition</div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0F1F3C', letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: 6 }}>
+              Federal Retirement Plan
+            </h1>
+            <h2 style={{ fontSize: 20, fontWeight: 400, color: '#445566', marginBottom: 16 }}>
+              {r.name}{inputs.spouseName && inputs.filingStatus === 'MFJ' ? ` & ${inputs.spouseName}` : ''}
+            </h2>
+            <div style={{ display: 'flex', gap: 24, fontSize: 13, color: '#667799' }}>
+              <span>Prepared: {today}</span>
+              <span>·</span>
+              <span>Age: {r.currentAge}</span>
+              <span>·</span>
+              <span>Filing: {inputs.filingStatus}</span>
+              <span>·</span>
+              <span>Retiring in: {inputs.retireState}</span>
+            </div>
+          </div>
+
+          {/* Key metrics grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
+            {[
+              { label: 'Net Worth', value: fmt.currency(r.netWorth, true), sub: 'Current snapshot' },
+              { label: 'Years to Retirement', value: r.yearsToRetire, sub: `Target age ${r.retireAge}` },
+              { label: 'Savings Rate', value: fmt.pct(r.savingsRate), sub: 'Annual contributions / income' },
+              { label: 'Net FERS Pension', value: fmt.currency(r.pension?.net) + '/yr', sub: `${r.yearsAtRetire || inputs.yearsAtRetire} yrs service` },
+              { label: 'Social Security', value: fmt.currency(r.yourSS) + '/yr', sub: `Claim at ${inputs.ssClaimAge}` },
+              { label: 'Income Floor', value: fmt.currency(r.incomeFloor) + '/yr', sub: 'Pension + SS combined' },
+              { label: 'Portfolio at Retire', value: fmt.currency(r.totalAtRetire, true), sub: `FIRE number: ${fmt.currency(r.fireNum, true)}` },
+              { label: 'FIRE Readiness', value: fmt.pct(r.fireReadiness), sub: `${r.swr || '4'}% SWR` },
+              { label: 'MC Success Rate', value: `${r.mcSuccess}%`, sub: '30-year sustainability' },
+            ].map(m => (
+              <div key={m.label} style={{ background: '#F4F6FA', borderRadius: 8, padding: '14px 16px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#8899AA', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{m.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#0F1F3C', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>{m.value}</div>
+                <div style={{ fontSize: 11, color: '#8899AA', marginTop: 3 }}>{m.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Disclaimer */}
+          <div style={{ background: '#FFF9EC', border: '1px solid #C9A84C', borderRadius: 8, padding: '12px 16px', fontSize: 11, color: '#92620A', lineHeight: 1.6 }}>
+            <strong>Disclaimer:</strong> This report is an educational planning tool only. It is not tax advice, legal advice, or financial advice. Results depend entirely on user-entered assumptions. Consult a licensed CPA, CFP®, or attorney before making retirement, tax, or estate planning decisions. Federal benefit rules change annually — verify current rules with OPM, IRS, and SSA before acting.
+          </div>
+        </div>
+
+        {/* ── Page 2: Income & Pension Detail ── */}
+        <div className="print-page" style={{ marginBottom: 48 }}>
+          <ReportSection title="I. Retirement Income Floor">
+            <ReportTable rows={[
+              ['FERS gross pension (unreduced)', fmt.currency(r.pension?.gross) + '/yr'],
+              ['Early retirement penalty', fmt.pct(r.pension?.penalty || 0)],
+              ['After penalty', fmt.currency(r.pension?.afterPenalty) + '/yr'],
+              ['Survivor election reduction', inputs.survivorElection + '%'],
+              ['Net FERS pension', fmt.currency(r.pension?.net) + '/yr'],
+              ['FERS pension multiplier', fmt.pct(r.pension?.multiplier)],
+              ['High-3 salary', fmt.currency(inputs.high3)],
+              ['Years of service at retire', inputs.yearsAtRetire],
+              ['', ''],
+              ['Social Security (you, annual)', fmt.currency(r.yourSS) + '/yr'],
+              ['SS claim age', inputs.ssClaimAge],
+              ['Spouse SS (annual)', r.spouseSS > 0 ? fmt.currency(r.spouseSS) + '/yr' : '—'],
+              ['', ''],
+              ['Total income floor', fmt.currency(r.incomeFloor) + '/yr'],
+              ['Target annual spending', fmt.currency(inputs.retireSpending) + '/yr'],
+              ['Portfolio gap to cover', fmt.currency(Math.max(0, inputs.retireSpending - r.incomeFloor)) + '/yr'],
+            ]} />
+          </ReportSection>
+
+          <ReportSection title="II. Portfolio Projections">
+            <ReportTable rows={[
+              ['Current Traditional TSP+IRA', fmt.currency(inputs.tradBalance)],
+              ['Current Roth TSP+IRA', fmt.currency(inputs.rothBalance)],
+              ['Annual TSP contribution', fmt.currency(inputs.annualTSP)],
+              ['Roth % of TSP', fmt.pct(inputs.tspRothPct)],
+              ['Backdoor Roth IRA (you + spouse)', fmt.currency((inputs.annualBackdoorRoth + inputs.spouseBackdoorRoth))],
+              ['Real return assumption', fmt.pct(inputs.realReturn)],
+              ['', ''],
+              ['Traditional at retirement', fmt.currency(r.tradAtRetire)],
+              ['Roth at retirement', fmt.currency(r.rothAtRetire)],
+              ['Total investable at retirement', fmt.currency(r.totalAtRetire)],
+              ['FIRE number (' + fmt.pct(inputs.swr || 0.04) + ' SWR)', fmt.currency(r.fireNum)],
+              ['FIRE readiness', fmt.pct(r.fireReadiness)],
+            ]} />
+          </ReportSection>
+        </div>
+
+        {/* ── Page 3: Tax & Healthcare ── */}
+        <div className="print-page" style={{ marginBottom: 48 }}>
+          <ReportSection title="III. Tax Analysis">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#8899AA', marginBottom: 8, textTransform: 'uppercase' }}>Current Year (2026)</div>
+                <ReportTable rows={[
+                  ['Gross income', fmt.currency(inputs.salary + inputs.spouseSalary)],
+                  ['Trad TSP deduction', '−' + fmt.currency(inputs.annualTSP * (1 - inputs.tspRothPct))],
+                  ['Standard deduction', '−' + fmt.currency(inputs.filingStatus === 'MFJ' ? 29200 : 14600)],
+                  ['Current marginal rate', fmt.pct(r.currentMarginalRate)],
+                ]} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#8899AA', marginBottom: 8, textTransform: 'uppercase' }}>At Age 73 (RMD / IRMAA)</div>
+                <ReportTable rows={[
+                  ['Traditional balance at 73', fmt.currency(r.tradAt73, true)],
+                  ['RMD at 73', fmt.currency(r.rmdAt73)],
+                  ['Projected MAGI at 73', fmt.currency(r.magiAt73)],
+                  ['IRMAA tier', r.irmaaAt73 === 0 ? 'Base ($0/person)' : '+' + fmt.currency(r.irmaaAt73) + '/person'],
+                ]} />
+              </div>
+            </div>
+            <div style={{ marginTop: 12, fontSize: 12, color: '#667799' }}>
+              State: {inputs.retireState} — {window.StateTaxEngine.STATE_LIBRARY[inputs.retireState]?.note || ''}
+            </div>
+          </ReportSection>
+
+          <ReportSection title="IV. Healthcare Cost Projection">
+            <ReportTable rows={[
+              ['Pre-Medicare annual (FEHB)', fmt.currency(inputs.fehbAnnual)],
+              ['Medicare Part B (monthly, 2026)', fmt.currency(inputs.medicareMonthly)],
+              ['Medicare Part D (monthly)', fmt.currency(inputs.partDMonthly)],
+              ['Medigap supplement (monthly)', fmt.currency(inputs.medigapMonthly)],
+              ['Out-of-pocket (annual)', fmt.currency(inputs.oopAnnual)],
+              ['Healthcare inflation', fmt.pct(inputs.hcInflation)],
+              ['Post-Medicare annual (base)', fmt.currency(r.medicareAnnual)],
+              ['Lifetime healthcare (65 → death)', fmt.currency(r.lifetimeHC)],
+            ]} />
+          </ReportSection>
+        </div>
+
+        {/* ── Page 4: Net Worth Trajectory ── */}
+        <div className="print-page" style={{ marginBottom: 48 }}>
+          <ReportSection title="V. Net Worth Trajectory">
+            <DataTable theme="light" compact
+              columns={[
+                { key: 'age', label: 'Age' },
+                { key: 'status', label: 'Phase' },
+                { key: 'netWorth', label: 'Net Worth', align: 'right' },
+                { key: 'trad', label: 'Traditional', align: 'right' },
+                { key: 'roth', label: 'Roth', align: 'right' },
+              ]}
+              rows={(r.trajectory || []).filter(d => d.age % 5 === 0 || d.age === r.currentAge || d.age === r.retireAge).map(d => ({
+                age: d.age === r.retireAge ? d.age + ' ★' : d.age,
+                status: d.age < r.retireAge ? 'Accumulating' : 'Distributing',
+                netWorth: fmt.currency(Math.max(0, d.netWorth), true),
+                trad: fmt.currency(Math.max(0, d.trad), true),
+                roth: fmt.currency(Math.max(0, d.roth), true),
+              }))}
+            />
+          </ReportSection>
+
+          <ReportSection title="VI. Scenario Comparison">
+            <DataTable theme="light" compact
+              columns={[
+                { key: 'label', label: 'Strategy' },
+                { key: 'tradAt', label: 'Trad at Retire', align: 'right' },
+                { key: 'rothAt', label: 'Roth at Retire', align: 'right' },
+                { key: 'total', label: 'Total', align: 'right' },
+              ]}
+              rows={(r.scenarios || []).map(sc => ({
+                label: sc.label,
+                tradAt: fmt.currency(sc.tradAt, true),
+                rothAt: fmt.currency(sc.rothAt, true),
+                total: fmt.currency(sc.tradAt + sc.rothAt, true),
+              }))}
+            />
+          </ReportSection>
+        </div>
+
+        {/* ── Page 5: Action Items ── */}
+        <div style={{ marginBottom: 48 }}>
+          <ReportSection title="VII. Priority Action Items">
+            {[
+              { priority: 'High', item: 'Complete Quick Start wizard with accurate salary, service date, and high-3', category: 'Data Entry' },
+              { priority: 'High', item: 'Verify FERS service credit with your HR / eOPF records', category: 'Pension' },
+              { priority: 'High', item: 'Get your Social Security statement from ssa.gov/myaccount', category: 'SS' },
+              { priority: 'High', item: 'Review and update beneficiary designations (TSP, IRA, FEGLI)', category: 'Estate' },
+              { priority: r.irmaaAt73 > 0 ? 'High' : 'Medium', item: r.irmaaAt73 > 0 ? 'IRMAA exposure at 73 — begin Roth conversion planning now' : 'No IRMAA exposure projected — monitor annually', category: 'Tax' },
+              { priority: r.fireReadiness < 1 ? 'High' : 'Medium', item: r.fireReadiness < 1 ? `FIRE shortfall: increase contributions or delay retirement` : 'On track for FIRE target — maintain current contributions', category: 'Savings' },
+              { priority: 'Medium', item: 'Decide survivor election (Full 10% = maximum spouse protection)', category: 'Pension' },
+              { priority: 'Medium', item: 'Evaluate FEGLI vs. term life insurance comparison', category: 'Insurance' },
+              { priority: 'Medium', item: 'Review state tax comparison — consider retirement state relocation', category: 'Tax' },
+              { priority: 'Low', item: 'Establish HSA account if on FEHB HDHP plan', category: 'Healthcare' },
+              { priority: 'Low', item: 'Model long-term care scenarios and insurance options', category: 'LTC' },
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #EDF0F5' }}>
+                <span style={{
+                  flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+                  background: item.priority === 'High' ? '#FFEBEE' : item.priority === 'Medium' ? '#FFF9EC' : '#EFF6FF',
+                  color: item.priority === 'High' ? '#B71C1C' : item.priority === 'Medium' ? '#92620A' : '#1345A0',
+                }}>{item.priority}</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: 13, color: '#0F1F3C' }}>{item.item}</span>
+                  <span style={{ fontSize: 11, color: '#8899AA', marginLeft: 8 }}>[{item.category}]</span>
+                </div>
+              </div>
+            ))}
+          </ReportSection>
+
+          {/* Footer */}
+          <div style={{ borderTop: '2px solid #1B3A6B', paddingTop: 20, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#8899AA' }}>
+            <span>FED-FinExcel Advisor Edition · April 2026</span>
+            <span>This report is for planning purposes only. Not tax or financial advice.</span>
+            <span>{r.name} · Retire Age {r.retireAge}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportSection({ title, children }) {
+  return (
+    <div style={{ marginBottom: 32 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: '#0F1F3C', borderBottom: '2px solid #1B3A6B', paddingBottom: 6, marginBottom: 14, letterSpacing: '-0.01em' }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function ReportTable({ rows }) {
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <tbody>
+        {rows.map((row, i) => row[0] === '' ? (
+          <tr key={i}><td colSpan={2} style={{ height: 8 }}></td></tr>
+        ) : (
+          <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)' }}>
+            <td style={{ padding: '5px 8px', color: '#667799', fontWeight: 400, width: '55%' }}>{row[0]}</td>
+            <td style={{ padding: '5px 8px', color: '#0F1F3C', fontWeight: 600, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row[1]}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// ALL VIEWS FROM ORIGINAL FILE (copied inline)
+// ════════════════════════════════════════════════════════════════
+
+function DashboardView({ results: r, inputs, setInput, isDark }) {
+  const theme = isDark ? 'dark' : 'light';
+  const readinessColor = r.fireReadiness >= 1.0 ? 'var(--success)' : r.fireReadiness >= 0.75 ? 'var(--warning)' : 'var(--danger)';
+  const trajectory = r.trajectory || [];
+  const nwSeries = [
+    { label: 'Net Worth', retireAge: r.retireAge, data: trajectory.map(d => ({ x: d.age, value: Math.max(0, d.netWorth) })) },
+    { label: 'Traditional', retireAge: r.retireAge, data: trajectory.map(d => ({ x: d.age, value: Math.max(0, d.trad) })) },
+    { label: 'Roth', retireAge: r.retireAge, data: trajectory.map(d => ({ x: d.age, value: Math.max(0, d.roth) })) },
+  ];
+  const donutSegs = [
+    { label: 'Traditional', value: inputs.tradBalance, color: isDark ? '#4A90D9' : '#1B3A6B' },
+    { label: 'Roth', value: inputs.rothBalance, color: '#C9A84C' },
+    { label: 'Home Equity', value: r.homeEquity, color: isDark ? '#4CAF50' : '#2E7D32' },
+    { label: 'Cash', value: inputs.cashLiquid, color: isDark ? '#78909C' : '#90A4AE' },
+  ].filter(s => s.value > 0);
+  return (
+    <div>
+      <SectionHeader title={`Dashboard — ${r.name}`} subtitle={`April 30, 2026 · Age ${r.currentAge} · ${r.filingStatus} · Retiring at ${r.retireAge}`} theme={theme} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+        <MetricCard label="Net Worth" value={fmt.currency(r.netWorth, true)} sub={fmt.pct(r.savingsRate) + ' savings rate'} theme={theme} />
+        <MetricCard label="Monthly Surplus" value={fmt.currency(r.monthlySurplus, true)} sub="After expenses" theme={theme} />
+        <MetricCard label="Years to Retire" value={r.yearsToRetire} sub={`Target age ${r.retireAge}`} theme={theme} accent />
+        <MetricCard label="Income Floor" value={fmt.currency(r.incomeFloor, true)} sub="Pension + SS (annual)" theme={theme} />
+        <MetricCard label="MC Success" value={`${r.mcSuccess}%`} sub="30-yr sustainability" theme={theme} accent />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Net Worth Trajectory</div>
+          <LineChart series={nwSeries} width={540} height={220} theme={theme} />
+        </div>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>Retirement Readiness</div>
+          <div style={{ display: 'flex', gap: 24, alignItems: 'center', marginBottom: 16 }}>
+            <DonutChart segments={donutSegs} size={110} thickness={20} theme={theme} />
+            <div style={{ flex: 1 }}>
+              {donutSegs.map(s => (
+                <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12 }}>
+                  <span style={{ display: 'flex', gap: 6, alignItems: 'center', color: 'var(--text-muted)' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, display: 'inline-block' }}></span>
+                    {s.label}
+                  </span>
+                  <span style={{ fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{fmt.currency(s.value, true)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>FIRE readiness</div>
+          <ProgressBar value={r.fireReadiness} max={1.2} color={readinessColor} theme={theme} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 4 }}>
+            <span style={{ color: 'var(--text-muted)' }}>At retire: {fmt.currency(r.totalAtRetire, true)}</span>
+            <span style={{ color: readinessColor, fontWeight: 700 }}>{fmt.pct(r.fireReadiness * 100 / 100)} funded</span>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>Income Floor (at retire)</div>
+          {[
+            { label: 'FERS Pension (net)', value: r.pension?.net },
+            { label: 'Social Security (you)', value: r.yourSS },
+            { label: 'Spouse SS', value: r.spouseSS },
+          ].map(item => (
+            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, fontSize: 13 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+              <span style={{ fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{fmt.currency(item.value)}/yr</span>
+            </div>
+          ))}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontWeight: 700, fontSize: 13 }}>Total Floor</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--accent2)', fontVariantNumeric: 'tabular-nums' }}>{fmt.currency(r.incomeFloor)}/yr</span>
+          </div>
+        </div>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>IRMAA & RMD (at 73)</div>
+          {[
+            { label: 'Trad at 73', value: fmt.currency(r.tradAt73, true) },
+            { label: 'RMD at 73', value: fmt.currency(r.rmdAt73) },
+            { label: 'MAGI at 73', value: fmt.currency(r.magiAt73) },
+            { label: 'IRMAA surcharge', value: r.irmaaAt73 === 0 ? 'Base ($0)' : fmt.currency(r.irmaaAt73) },
+          ].map(item => (
+            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+              <span style={{ fontWeight: 600, color: 'var(--text)' }}>{item.value}</span>
+            </div>
+          ))}
+          {r.irmaaAt73 > 0 && <Alert type="warning" theme={theme}>IRMAA exposure at 73.</Alert>}
+          {r.irmaaAt73 === 0 && <Alert type="success" theme={theme}>Base Medicare tier at 73.</Alert>}
+        </div>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>SS Timing Comparison</div>
+          <BarChart
+            data={[
+              { label: 'Claim 62', value: r.ss62Annual },
+              { label: 'Claim 67', value: r.ss67Annual, accent: inputs.ssClaimAge === 67 },
+              { label: 'Claim 70', value: r.ss70Annual, accent: inputs.ssClaimAge === 70 },
+            ]}
+            color={isDark ? '#334455' : '#D0D8E8'}
+            accentColor={isDark ? '#C9A84C' : '#1B3A6B'}
+            height={140} theme={theme}
+          />
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+            Chosen: Claim at {inputs.ssClaimAge} → {fmt.currency(r.yourSS)}/yr
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WizardView({ inputs, setInput, results: r, step, setStep, isDark, setSection }) {
+  const theme = isDark ? 'dark' : 'light';
+  const totalSteps = WIZARD_STEPS.length;
+  const currentStep = WIZARD_STEPS[step];
+  return (
+    <div>
+      <SectionHeader title="Quick Start Wizard" subtitle="5–15 minutes to a complete retirement plan" theme={theme} />
+      <div style={{ maxWidth: 680, margin: '0 auto 24px' }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+          {WIZARD_STEPS.map((s, i) => (
+            <button key={s.id} onClick={() => setStep(i)} style={{
+              flex: 1, height: 4, borderRadius: 2, border: 'none', cursor: 'pointer',
+              background: i <= step ? 'var(--accent2)' : (isDark ? 'rgba(255,255,255,0.1)' : '#D8E0EC'),
+              transition: 'background 0.3s',
+            }} />
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)' }}>
+          <span style={{ fontWeight: 600, color: 'var(--accent2)' }}>Step {step + 1} of {totalSteps}: {currentStep.label}</span>
+          <span>{currentStep.subtitle}</span>
+        </div>
+      </div>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '28px 32px', maxWidth: 680, margin: '0 auto' }}>
+        {step === 0 && <WizardPersonal inputs={inputs} setInput={setInput} isDark={isDark} />}
+        {step === 1 && <WizardIncome inputs={inputs} setInput={setInput} isDark={isDark} />}
+        {step === 2 && <WizardPension inputs={inputs} setInput={setInput} isDark={isDark} />}
+        {step === 3 && <WizardSS inputs={inputs} setInput={setInput} isDark={isDark} />}
+        {step === 4 && <WizardSpending inputs={inputs} setInput={setInput} isDark={isDark} />}
+        {step === 5 && <WizardHealthcare inputs={inputs} setInput={setInput} isDark={isDark} />}
+        {step === 6 && <WizardRealEstate inputs={inputs} setInput={setInput} isDark={isDark} />}
+        {step === 7 && <WizardResults results={r} isDark={isDark} setSection={setSection} />}
+      </div>
+      <div style={{ maxWidth: 680, margin: '16px auto 0', display: 'flex', justifyContent: 'space-between' }}>
+        <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0} style={{
+          padding: '9px 20px', borderRadius: 7, border: '1px solid var(--border)', cursor: step === 0 ? 'default' : 'pointer',
+          background: 'transparent', color: step === 0 ? 'var(--text-muted)' : 'var(--text)', fontSize: 13, fontFamily: 'inherit',
+        }}>← Previous</button>
+        {step < totalSteps - 1 ? (
+          <button onClick={() => setStep(Math.min(totalSteps - 1, step + 1))} style={{
+            padding: '9px 24px', borderRadius: 7, border: 'none', cursor: 'pointer',
+            background: 'var(--accent2)', color: '#0F1F3C', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+          }}>Next →</button>
+        ) : (
+          <button onClick={() => setSection('dashboard')} style={{
+            padding: '9px 24px', borderRadius: 7, border: 'none', cursor: 'pointer',
+            background: 'var(--accent1)', color: '#FFF', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+          }}>View Dashboard →</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WizardPersonal({ inputs, setInput, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Personal Information</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+        <div style={{ paddingRight: 16 }}>
+          <Field label="Your name" value={inputs.name} onChange={v => setInput('name', v)} theme={t} />
+          <Field label="Your current age" type="number" value={inputs.currentAge} onChange={v => setInput('currentAge', v)} theme={t} help="Drives retirement countdown and RMDs." />
+          <Field label="Planned retirement age" type="number" value={inputs.retireAge} onChange={v => setInput('retireAge', v)} theme={t} help="Most feds: age 57 (MRA) to 62." />
+          <Field label="Projected age at death" type="number" value={inputs.deathAge} onChange={v => setInput('deathAge', v)} theme={t} />
+        </div>
+        <div style={{ paddingLeft: 16 }}>
+          <Field label="Spouse name" value={inputs.spouseName} onChange={v => setInput('spouseName', v)} theme={t} />
+          <Field label="Filing status" value={inputs.filingStatus} onChange={v => setInput('filingStatus', v)} theme={t}
+            options={[{ value: 'MFJ', label: 'Married Filing Jointly' }, { value: 'Single', label: 'Single' }]} />
+          <Field label="State retiring in" value={inputs.retireState} onChange={v => setInput('retireState', v)} theme={t}
+            options={window.StateTaxEngine.STATE_NAMES.map(s => ({ value: s, label: s }))} />
+          <Field label="SWR (safe withdrawal rate)" type="number" value={Math.round(inputs.swr * 100 * 10) / 10} onChange={v => setInput('swr', v / 100)} suffix="%" theme={t} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WizardIncome({ inputs, setInput, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Income & Savings</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+        <div style={{ paddingRight: 16 }}>
+          <Field label="Your gross salary" type="number" value={inputs.salary} onChange={v => setInput('salary', v)} prefix="$" theme={t} help="W-2 Box 5." />
+          <Field label="Annual TSP contribution" type="number" value={inputs.annualTSP} onChange={v => setInput('annualTSP', v)} prefix="$" theme={t} />
+          <Field label="Roth % of TSP" type="number" value={Math.round(inputs.tspRothPct * 100)} onChange={v => setInput('tspRothPct', v / 100)} suffix="%" theme={t} />
+          <Field label="Your Backdoor Roth IRA" type="number" value={inputs.annualBackdoorRoth} onChange={v => setInput('annualBackdoorRoth', v)} prefix="$" theme={t} />
+        </div>
+        <div style={{ paddingLeft: 16 }}>
+          <Field label="Spouse salary" type="number" value={inputs.spouseSalary} onChange={v => setInput('spouseSalary', v)} prefix="$" theme={t} />
+          <Field label="Current Traditional TSP+IRA" type="number" value={inputs.tradBalance} onChange={v => setInput('tradBalance', v)} prefix="$" theme={t} />
+          <Field label="Current Roth TSP+IRA" type="number" value={inputs.rothBalance} onChange={v => setInput('rothBalance', v)} prefix="$" theme={t} />
+          <Field label="Real return (net of inflation)" type="number" value={Math.round(inputs.realReturn * 100 * 10) / 10} onChange={v => setInput('realReturn', v / 100)} suffix="%" theme={t} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WizardPension({ inputs, setInput, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const p = window.FEDEngine.calcPension({ high3: inputs.high3, yearsService: inputs.yearsAtRetire, retireAge: inputs.retireAge, survivorElection: inputs.survivorElection });
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>FERS Pension</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+        <div style={{ paddingRight: 16 }}>
+          <Field label="High-3 average salary" type="number" value={inputs.high3} onChange={v => setInput('high3', v)} prefix="$" theme={t} />
+          <Field label="Years of service at retirement" type="number" value={inputs.yearsAtRetire} onChange={v => setInput('yearsAtRetire', v)} theme={t} />
+          <Field label="Survivor election" value={String(inputs.survivorElection)} onChange={v => setInput('survivorElection', parseInt(v))} theme={t}
+            options={[{ value: '0', label: 'None (0%)' }, { value: '5', label: 'Partial (5% reduction)' }, { value: '10', label: 'Full (10% reduction)' }]} />
+          <Field label="Unused sick leave (hours)" type="number" value={inputs.sickLeaveHours} onChange={v => setInput('sickLeaveHours', v)} theme={t} />
+        </div>
+        <div style={{ paddingLeft: 16 }}>
+          <div style={{ background: isDark ? 'rgba(201,168,76,0.08)' : '#FFFBEB', border: '1px solid var(--accent2)', borderRadius: 8, padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live Calculation</div>
+            {[
+              { label: 'Multiplier', value: fmt.pct(p.multiplier) },
+              { label: 'Gross pension', value: fmt.currency(p.gross) + '/yr' },
+              { label: 'Early penalty', value: fmt.pct(p.penalty) },
+              { label: 'Net pension', value: fmt.currency(p.net) + '/yr' },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                <span style={{ fontWeight: item.label.startsWith('Net') ? 700 : 500, color: 'var(--text)' }}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WizardSS({ inputs, setInput, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const { ssBenefit } = window.FEDEngine;
+  const ss62 = ssBenefit(inputs.ssPIA, 62);
+  const ss67 = ssBenefit(inputs.ssPIA, 67);
+  const ss70 = ssBenefit(inputs.ssPIA, 70);
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Social Security</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+        <div style={{ paddingRight: 16 }}>
+          <Field label="Your SS at FRA (age 67)" type="number" value={inputs.ssPIA} onChange={v => setInput('ssPIA', v)} prefix="$" theme={t} help="Annual. From ssa.gov/myaccount." />
+          <Field label="Your planned SS claim age" type="number" value={inputs.ssClaimAge} onChange={v => setInput('ssClaimAge', Math.max(62, Math.min(70, v)))} theme={t} />
+          <Field label="Spouse SS at FRA" type="number" value={inputs.spousePIA} onChange={v => setInput('spousePIA', v)} prefix="$" theme={t} />
+          <Field label="Spouse claim age" type="number" value={inputs.spouseSsClaimAge} onChange={v => setInput('spouseSsClaimAge', Math.max(62, Math.min(70, v)))} theme={t} />
+        </div>
+        <div style={{ paddingLeft: 16 }}>
+          <div style={{ background: isDark ? 'rgba(255,255,255,0.04)' : '#F8F9FC', border: '1px solid var(--card-border)', borderRadius: 8, padding: 16 }}>
+            {[{ age: 62, val: ss62, note: '30% cut' }, { age: 67, val: ss67, note: 'FRA' }, { age: 70, val: ss70, note: '+24%' }].map(item => (
+              <div key={item.age} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 6, marginBottom: 6,
+                background: inputs.ssClaimAge === item.age ? (isDark ? 'rgba(201,168,76,0.15)' : 'rgba(27,58,107,0.08)') : 'transparent',
+                border: inputs.ssClaimAge === item.age ? '1px solid var(--accent2)' : '1px solid transparent' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Claim at {item.age} ({item.note})</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{fmt.currency(item.val)}/yr</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WizardSpending({ inputs, setInput, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Retirement Spending</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+        <div style={{ paddingRight: 16 }}>
+          <Field label="Target annual spending (today's $)" type="number" value={inputs.retireSpending} onChange={v => setInput('retireSpending', v)} prefix="$" theme={t} />
+          <Field label="Safe withdrawal rate" type="number" value={Math.round(inputs.swr * 100 * 10) / 10} onChange={v => setInput('swr', v / 100)} suffix="%" theme={t} />
+        </div>
+        <div style={{ paddingLeft: 16 }}>
+          <SliderField label="Go-Go factor (retire→74)" min={0.5} max={1.5} step={0.05} value={inputs.goGoFactor} onChange={v => setInput('goGoFactor', v)} fmt={v => Math.round(v*100)+'%'} theme={t} />
+          <SliderField label="Slow-Go factor (75–84)" min={0.4} max={1.0} step={0.05} value={inputs.slowGoFactor} onChange={v => setInput('slowGoFactor', v)} fmt={v => Math.round(v*100)+'%'} theme={t} />
+          <SliderField label="No-Go factor (85+)" min={0.3} max={0.9} step={0.05} value={inputs.noGoFactor} onChange={v => setInput('noGoFactor', v)} fmt={v => Math.round(v*100)+'%'} theme={t} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WizardHealthcare({ inputs, setInput, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Healthcare</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+        <div style={{ paddingRight: 16 }}>
+          <Field label="FEHB annual premium" type="number" value={inputs.fehbAnnual} onChange={v => setInput('fehbAnnual', v)} prefix="$" theme={t} />
+          <Field label="Medicare Part B (monthly)" type="number" value={inputs.medicareMonthly} onChange={v => setInput('medicareMonthly', v)} prefix="$" theme={t} />
+          <Field label="Medicare Part D (monthly)" type="number" value={inputs.partDMonthly} onChange={v => setInput('partDMonthly', v)} prefix="$" theme={t} />
+          <Field label="Medigap supplement (monthly)" type="number" value={inputs.medigapMonthly} onChange={v => setInput('medigapMonthly', v)} prefix="$" theme={t} />
+        </div>
+        <div style={{ paddingLeft: 16 }}>
+          <Field label="Annual out-of-pocket" type="number" value={inputs.oopAnnual} onChange={v => setInput('oopAnnual', v)} prefix="$" theme={t} />
+          <Field label="HSA balance" type="number" value={inputs.hsaBalance} onChange={v => setInput('hsaBalance', v)} prefix="$" theme={t} />
+          <SliderField label="Healthcare inflation" min={3} max={8} step={0.5} value={Math.round(inputs.hcInflation*100*2)/2} onChange={v => setInput('hcInflation', v/100)} fmt={v => v+'%'} theme={t} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WizardRealEstate({ inputs, setInput, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Real Estate & Liquid Assets</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+        <div style={{ paddingRight: 16 }}>
+          <Field label="Primary home value" type="number" value={inputs.homeValue} onChange={v => setInput('homeValue', v)} prefix="$" theme={t} />
+          <Field label="Mortgage balance" type="number" value={inputs.mortgageBalance} onChange={v => setInput('mortgageBalance', v)} prefix="$" theme={t} />
+        </div>
+        <div style={{ paddingLeft: 16 }}>
+          <Field label="Cash & liquid savings" type="number" value={inputs.cashLiquid} onChange={v => setInput('cashLiquid', v)} prefix="$" theme={t} />
+          <div style={{ background: isDark ? 'rgba(255,255,255,0.04)' : '#F4F6FA', borderRadius: 8, padding: 14, fontSize: 13 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ color: 'var(--text-muted)' }}>Home equity</span>
+              <span style={{ fontWeight: 700 }}>{fmt.currency(inputs.homeValue - inputs.mortgageBalance)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WizardResults({ results: r, isDark, setSection }) {
+  const t = isDark ? 'dark' : 'light';
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Your Plan at a Glance</div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Quick Start complete.</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        <MetricCard label="FIRE readiness" value={fmt.pct(r.fireReadiness)} sub={`FIRE: ${fmt.currency(r.fireNum, true)}`} theme={t} accent />
+        <MetricCard label="Income floor" value={fmt.currency(r.incomeFloor)} sub="Pension + SS" theme={t} accent />
+        <MetricCard label="Net pension" value={fmt.currency(r.pension?.net) + '/yr'} theme={t} />
+        <MetricCard label="MC success" value={`${r.mcSuccess}%`} theme={t} />
+      </div>
+      {r.fireReadiness < 1.0 && <Alert type="warning" theme={t}>Portfolio projected at {fmt.pct(r.fireReadiness)} of FIRE target. Consider increasing contributions.</Alert>}
+      {r.fireReadiness >= 1.0 && <Alert type="success" theme={t}>On track! Projected portfolio exceeds FIRE target.</Alert>}
+      <button onClick={() => setSection('dashboard')} style={{ marginTop: 8, width: '100%', padding: '12px 20px', borderRadius: 8, background: 'var(--accent2)', border: 'none', cursor: 'pointer', color: '#0F1F3C', fontSize: 14, fontWeight: 700, fontFamily: 'inherit' }}>
+        Open Full Dashboard →
+      </button>
+    </div>
+  );
+}
+
+function CalculatorView({ inputs, setInput, results: r, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const [tab, setTab] = useState('personal');
+  const tabs = [
+    { id: 'personal', label: 'I. Personal' }, { id: 'income', label: 'II. Income' },
+    { id: 'accounts', label: 'III. Accounts' }, { id: 'pension', label: 'IV. Pension' },
+    { id: 'ss', label: 'V. SS' }, { id: 'spending', label: 'VI. Spending' },
+    { id: 'hc', label: 'VII. Healthcare' }, { id: 're', label: 'VIII. Real Est.' },
+  ];
+  return (
+    <div>
+      <SectionHeader title="Full Calculator" subtitle="All inputs — mirrors Excel Calculator sheet" theme={t} />
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
+        {tabs.map(tb => (
+          <button key={tb.id} onClick={() => setTab(tb.id)} style={{
+            padding: '7px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+            background: tab === tb.id ? 'var(--accent2)' : (isDark ? 'rgba(255,255,255,0.06)' : '#E8EDF5'),
+            color: tab === tb.id ? '#0F1F3C' : 'var(--text-muted)',
+            fontWeight: tab === tb.id ? 700 : 400, fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0,
+          }}>{tb.label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          {tab === 'personal' && <WizardPersonal inputs={inputs} setInput={setInput} isDark={isDark} />}
+          {tab === 'income' && <WizardIncome inputs={inputs} setInput={setInput} isDark={isDark} />}
+          {tab === 'accounts' && (
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>Retirement Accounts</div>
+              <Field label="Traditional TSP+IRA" type="number" value={inputs.tradBalance} onChange={v => setInput('tradBalance', v)} prefix="$" theme={t} />
+              <Field label="Roth TSP+IRA" type="number" value={inputs.rothBalance} onChange={v => setInput('rothBalance', v)} prefix="$" theme={t} />
+              <Field label="Spouse Traditional" type="number" value={inputs.spouseTradBalance} onChange={v => setInput('spouseTradBalance', v)} prefix="$" theme={t} />
+              <Field label="Brokerage" type="number" value={inputs.brokerBalance} onChange={v => setInput('brokerBalance', v)} prefix="$" theme={t} />
+              <Field label="HSA balance" type="number" value={inputs.hsaBalance} onChange={v => setInput('hsaBalance', v)} prefix="$" theme={t} />
+            </div>
+          )}
+          {tab === 'pension' && <WizardPension inputs={inputs} setInput={setInput} isDark={isDark} />}
+          {tab === 'ss' && <WizardSS inputs={inputs} setInput={setInput} isDark={isDark} />}
+          {tab === 'spending' && <WizardSpending inputs={inputs} setInput={setInput} isDark={isDark} />}
+          {tab === 'hc' && <WizardHealthcare inputs={inputs} setInput={setInput} isDark={isDark} />}
+          {tab === 're' && <WizardRealEstate inputs={inputs} setInput={setInput} isDark={isDark} />}
+        </div>
+        {r && (
+          <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Live Outputs</div>
+            {[
+              { label: 'Net Worth', value: fmt.currency(r.netWorth, true) },
+              { label: 'Savings Rate', value: fmt.pct(r.savingsRate) },
+              { label: 'Marginal Rate', value: fmt.pct(r.currentMarginalRate) },
+              { label: 'Trad at Retire', value: fmt.currency(r.tradAtRetire, true) },
+              { label: 'Roth at Retire', value: fmt.currency(r.rothAtRetire, true) },
+              { label: 'Net Pension', value: fmt.currency(r.pension?.net) + '/yr' },
+              { label: 'Income Floor', value: fmt.currency(r.incomeFloor) + '/yr' },
+              { label: 'FIRE Number', value: fmt.currency(r.fireNum, true) },
+              { label: 'MC Success', value: `${r.mcSuccess}%` },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                <span style={{ fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProjectionView({ results: r, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const traj = r.trajectory || [];
+  const nwSeries = [
+    { label: 'Net Worth', retireAge: r.retireAge, data: traj.map(d => ({ x: d.age, value: Math.max(0, d.netWorth) })) },
+    { label: 'Traditional', retireAge: r.retireAge, data: traj.map(d => ({ x: d.age, value: Math.max(0, d.trad) })) },
+    { label: 'Roth', retireAge: r.retireAge, data: traj.map(d => ({ x: d.age, value: Math.max(0, d.roth) })) },
+  ];
+  return (
+    <div>
+      <SectionHeader title="Net Worth Projection" subtitle={`Age ${r.currentAge} → ${r.deathAge}`} theme={t} />
+      <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24, marginBottom: 16 }}>
+        <LineChart series={nwSeries} width={860} height={300} theme={t} />
+      </div>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 20 }}>
+        <DataTable theme={t}
+          columns={[{ key: 'age', label: 'Age' }, { key: 'netWorth', label: 'Net Worth', align: 'right' }, { key: 'trad', label: 'Traditional', align: 'right' }, { key: 'roth', label: 'Roth', align: 'right' }, { key: 'status', label: 'Phase' }]}
+          rows={traj.filter(d => d.age % 5 === 0 || d.age === r.currentAge || d.age === r.retireAge).map(d => ({
+            age: d.age === r.retireAge ? d.age + ' ★' : d.age,
+            netWorth: fmt.currency(Math.max(0, d.netWorth), true),
+            trad: fmt.currency(Math.max(0, d.trad), true),
+            roth: fmt.currency(Math.max(0, d.roth), true),
+            status: d.age < r.retireAge ? 'Accumulating' : 'Distributing',
+          }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TaxView({ results: r, inputs, setInput, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const { effectiveTax, marginalRate } = window.FEDEngine;
+  const stdDed = inputs.filingStatus === 'MFJ' ? 29200 : 14600;
+  const taxable = Math.max(0, inputs.salary + inputs.spouseSalary - inputs.annualTSP * (1 - inputs.tspRothPct) - stdDed);
+  const fedTax = effectiveTax(taxable, inputs.filingStatus);
+  const effectiveRate = inputs.salary > 0 ? fedTax / (inputs.salary + inputs.spouseSalary) : 0;
+  return (
+    <div>
+      <SectionHeader title="Annual Tax Engine" subtitle="Federal income tax — current year and retirement" theme={t} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>Current Year (2026)</div>
+          {[
+            { label: 'Gross income', value: fmt.currency(inputs.salary + inputs.spouseSalary) },
+            { label: 'Trad TSP deduction', value: '−' + fmt.currency(inputs.annualTSP * (1 - inputs.tspRothPct)) },
+            { label: 'Standard deduction', value: '−' + fmt.currency(stdDed) },
+            { label: 'Taxable income', value: fmt.currency(taxable) },
+            { label: 'Federal income tax', value: fmt.currency(fedTax), bold: true },
+            { label: 'Effective rate', value: fmt.pct(effectiveRate), bold: true },
+            { label: 'Marginal rate', value: fmt.pct(r.currentMarginalRate), bold: true },
+          ].map(item => (
+            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+              <span style={{ fontWeight: item.bold ? 700 : 400, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{item.value}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>At Retirement / Age 73</div>
+          {[
+            { label: 'Pension (net)', value: fmt.currency(r.pension?.net) },
+            { label: 'SS (85% taxable)', value: fmt.currency(r.yourSS * 0.85) },
+            { label: 'RMD at 73', value: fmt.currency(r.rmdAt73) },
+            { label: 'MAGI at 73', value: fmt.currency(r.magiAt73) },
+            { label: 'IRMAA tier', value: r.irmaaAt73 === 0 ? 'Base ($0)' : '+' + fmt.currency(r.irmaaAt73) + '/person' },
+            { label: 'Marginal rate at 73', value: fmt.pct(marginalRate(Math.max(0, r.magiAt73 - stdDed), inputs.filingStatus)) },
+          ].map(item => (
+            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+              <span style={{ color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{item.value}</span>
+            </div>
+          ))}
+          {r.irmaaAt73 > 0 && <Alert type="warning" theme={t}>IRMAA exposure at 73.</Alert>}
+          {r.irmaaAt73 === 0 && <Alert type="success" theme={t}>Base Medicare tier at 73.</Alert>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RothView({ results: r, inputs, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const ladder = r.rothLadder || [];
+  return (
+    <div>
+      <SectionHeader title="Roth Conversion Ladder" subtitle="Conversion window analysis — pre-retirement to RMD age" theme={t} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Strategy Summary</div>
+          {[
+            { label: 'Current marginal rate', value: fmt.pct(r.currentMarginalRate) },
+            { label: 'Traditional at retire', value: fmt.currency(r.tradAtRetire, true) },
+            { label: 'Roth at retire', value: fmt.currency(r.rothAtRetire, true) },
+            { label: 'RMD at 73', value: fmt.currency(r.rmdAt73) },
+          ].map(item => (
+            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+              <span style={{ fontWeight: 600, color: 'var(--text)' }}>{item.value}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <LineChart series={[
+            { label: 'Trad Balance', retireAge: r.retireAge, data: ladder.map(d => ({ x: d.age, value: d.balance })) },
+            { label: 'Conversion Room', retireAge: r.retireAge, data: ladder.map(d => ({ x: d.age, value: d.conversionRoom })) },
+          ]} width={440} height={220} theme={t} />
+        </div>
+      </div>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 20 }}>
+        <DataTable theme={t} compact
+          columns={[{ key: 'age', label: 'Age' }, { key: 'balance', label: 'Trad Balance', align: 'right' }, { key: 'room', label: 'Conversion Room', align: 'right' }, { key: 'phase', label: 'Phase' }]}
+          rows={ladder.map(row => ({ age: row.age, balance: fmt.currency(row.balance, true), room: fmt.currency(row.conversionRoom), phase: row.age < inputs.retireAge ? 'Pre-retire' : 'In retirement' }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+function HealthcareView({ results: r, inputs, setInput, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const hc = r.hcProjection || [];
+  return (
+    <div>
+      <SectionHeader title="Healthcare Bridge & Lifetime Costs" subtitle="FEHB to Medicare transition and lifetime cost projection" theme={t} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>Cost Summary</div>
+          {[
+            { label: 'Pre-Medicare annual (FEHB)', value: fmt.currency(inputs.fehbAnnual) },
+            { label: 'Post-Medicare annual (base)', value: fmt.currency(r.medicareAnnual) },
+            { label: 'At age 80 (w/ inflation)', value: fmt.currency(hc.find(d => d.age === 80)?.annual) },
+            { label: 'Lifetime HC (65→death)', value: fmt.currency(r.lifetimeHC, true), bold: true },
+          ].map(item => (
+            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+              <span style={{ fontWeight: item.bold ? 700 : 400, color: 'var(--text)' }}>{item.value}</span>
+            </div>
+          ))}
+          <Alert type="info" theme={t} style={{ marginTop: 12 }}>FERS retirees maintain FEHB in retirement — no gap to Medicare needed.</Alert>
+        </div>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <LineChart series={[{ label: 'Annual HC Cost', retireAge: r.retireAge, data: hc.map(d => ({ x: d.age, value: d.annual })) }]} width={440} height={240} theme={t} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WaterfallView({ results: r, inputs, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const buckets = [
+    { name: 'Emergency Reserve', balance: inputs.cashLiquid, color: '#78909C' },
+    { name: 'Roth TSP/IRA', balance: inputs.rothBalance, color: isDark ? '#C9A84C' : '#1B3A6B' },
+    { name: 'Traditional TSP/IRA', balance: inputs.tradBalance, color: '#4A90D9' },
+    { name: 'Brokerage', balance: inputs.brokerBalance, color: '#66BB6A' },
+  ];
+  const total = buckets.reduce((s, b) => s + b.balance, 0);
+  return (
+    <div>
+      <SectionHeader title="Waterfall Budget Module" subtitle="Income layering strategy — accumulation to distribution" theme={t} />
+      <Alert type="info" theme={t}>The Waterfall module sequences income sources to minimize taxes and maximize portfolio longevity.</Alert>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>Income Waterfall (at retirement)</div>
+          {[
+            { layer: 1, label: 'FERS Pension', value: r.pension?.net, color: isDark ? '#C9A84C' : '#1B3A6B', pct: r.pension?.net / inputs.retireSpending },
+            { layer: 2, label: 'Social Security', value: r.yourSS + r.spouseSS, color: isDark ? '#4A90D9' : '#2E7D32', pct: (r.yourSS + r.spouseSS) / inputs.retireSpending },
+            { layer: 3, label: 'Portfolio Draws', value: Math.max(0, inputs.retireSpending - r.incomeFloor), color: isDark ? '#E05353' : '#C62828', pct: Math.max(0, inputs.retireSpending - r.incomeFloor) / inputs.retireSpending },
+          ].map(item => (
+            <div key={item.layer} style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ width: 20, height: 20, borderRadius: 4, background: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#FFF', fontWeight: 700 }}>{item.layer}</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 500 }}>{item.label}</span>
+                </span>
+                <span style={{ fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{fmt.currency(item.value)}/yr</span>
+              </div>
+              <ProgressBar value={Math.max(0, item.pct)} max={1} color={item.color} theme={t} />
+            </div>
+          ))}
+        </div>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>Portfolio Buckets</div>
+          {buckets.map(b => (
+            <div key={b.name} style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                <span style={{ color: 'var(--text)' }}>{b.name}</span>
+                <span style={{ fontWeight: 700, color: 'var(--text)' }}>{fmt.currency(b.balance, true)}</span>
+              </div>
+              <ProgressBar value={b.balance} max={total || 1} color={b.color} theme={t} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScenariosView({ results: r, inputs, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const { monteCarlo } = window.FEDEngine;
+  const scenarios = [
+    { label: 'Base Case', desc: '3% real return', mc: r.mcSuccess, color: isDark ? '#C9A84C' : '#1B3A6B' },
+    { label: 'Bear Market', desc: '1% real return', mc: monteCarlo({ startBalance: r.totalAtRetire, annualWithdrawal: Math.max(0, inputs.retireSpending - r.incomeFloor), realReturn: 0.01, years: r.deathAge - r.retireAge, stdDev: 0.18 }), color: isDark ? '#E05353' : '#C62828' },
+    { label: 'Bull Market', desc: '5% real return', mc: monteCarlo({ startBalance: r.totalAtRetire, annualWithdrawal: Math.max(0, inputs.retireSpending - r.incomeFloor), realReturn: 0.05, years: r.deathAge - r.retireAge, stdDev: 0.10 }), color: isDark ? '#5CB85C' : '#2E7D32' },
+    { label: 'High Inflation', desc: '5% inflation', mc: monteCarlo({ startBalance: r.totalAtRetire, annualWithdrawal: Math.max(0, inputs.retireSpending * 1.3 - r.incomeFloor), realReturn: 0.02, years: r.deathAge - r.retireAge, stdDev: 0.15 }), color: isDark ? '#FF9800' : '#E65100' },
+  ];
+  return (
+    <div>
+      <SectionHeader title="Scenarios & Risk Analysis" subtitle="Monte Carlo sustainability across economic environments" theme={t} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        {scenarios.map(sc => (
+          <div key={sc.label} style={{ background: 'var(--card)', border: `1px solid ${sc.color}40`, borderRadius: 10, padding: 18, borderTop: `3px solid ${sc.color}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{sc.label}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>{sc.desc}</div>
+            <div style={{ fontSize: 32, fontWeight: 800, color: sc.color, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{sc.mc}%</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>MC success rate</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+        <DataTable theme={t}
+          columns={[{ key: 'label', label: 'Strategy' }, { key: 'tradAt', label: 'Trad at Retire', align: 'right' }, { key: 'rothAt', label: 'Roth at Retire', align: 'right' }, { key: 'total', label: 'Total', align: 'right' }]}
+          rows={(r.scenarios || []).map(sc => ({ label: sc.label, tradAt: fmt.currency(sc.tradAt, true), rothAt: fmt.currency(sc.rothAt, true), total: fmt.currency(sc.tradAt + sc.rothAt, true) }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+function LTCView({ results: r, inputs, setInput, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const ltcScenarios = [
+    { label: 'No LTC Need', cost: 0, duration: 0, burden: 0 },
+    { label: 'Mild (2 yrs)', cost: 54000, duration: 2, burden: 108000 },
+    { label: 'Moderate (4 yrs)', cost: 80000, duration: 4, burden: 320000 },
+    { label: 'Severe (8 yrs)', cost: 108000, duration: 8, burden: 864000 },
+    { label: 'Memory Care (10 yrs)', cost: 120000, duration: 10, burden: 1200000 },
+  ];
+  return (
+    <div>
+      <SectionHeader title="Long-Term Care Scenarios" subtitle="2025 national median care cost burden modeling" theme={t} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+        {ltcScenarios.map(sc => (
+          <div key={sc.label} style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{sc.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent2)', fontVariantNumeric: 'tabular-nums' }}>{fmt.currency(sc.burden, true)}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{sc.cost > 0 ? fmt.currency(sc.cost, true) + '/yr × ' + sc.duration + ' yrs' : 'No LTC costs'}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+          <div>
+            <SliderField label="LTC start age" min={75} max={95} step={1} value={inputs.ltcStartAge} onChange={v => setInput('ltcStartAge', v)} theme={t} />
+            <SliderField label="Annual LTC cost" min={0} max={150000} step={5000} value={inputs.ltcAmount} onChange={v => setInput('ltcAmount', v)} fmt={v => fmt.currency(v, true)} theme={t} />
+          </div>
+          <div style={{ background: isDark ? 'rgba(201,168,76,0.08)' : '#FFFBEB', border: '1px solid var(--warning)', borderRadius: 8, padding: 16 }}>
+            <div style={{ fontSize: 13, color: 'var(--text)' }}>LTC starts at age <strong>{inputs.ltcStartAge}</strong></div>
+            <div style={{ fontSize: 13, color: 'var(--text)', marginTop: 4 }}>Annual cost: <strong>{fmt.currency(inputs.ltcAmount)}</strong></div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--warning)', marginTop: 10 }}>
+              Total: {fmt.currency((inputs.deathAge - inputs.ltcStartAge) * inputs.ltcAmount, true)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EstateView({ results: r, inputs, isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const fedExemption = 13610000;
+  const above = Math.max(0, r.netWorth - fedExemption);
+  return (
+    <div>
+      <SectionHeader title="Estate & Legacy" subtitle="Federal estate tax and beneficiary planning" theme={t} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>Estate Snapshot</div>
+          {[
+            { label: 'Current net worth', value: fmt.currency(r.netWorth, true) },
+            { label: 'Fed estate exemption (2026)', value: fmt.currency(fedExemption, true) },
+            { label: 'Above exemption', value: fmt.currency(above, true) },
+            { label: 'Est. federal estate tax (40%)', value: above > 0 ? fmt.currency(above * 0.40, true) : '$0' },
+          ].map(item => (
+            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+              <span style={{ fontWeight: 600, color: 'var(--text)' }}>{item.value}</span>
+            </div>
+          ))}
+          {above === 0 && <Alert type="success" theme={t}>Below 2026 federal estate tax exemption. No exposure.</Alert>}
+        </div>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 10, padding: 24 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>Asset Transfer Strategies</div>
+          {[
+            { strategy: 'Roth conversion', urgency: 'High', benefit: 'Inherited Roth = 10-year tax-free for beneficiaries' },
+            { strategy: 'Annual gifting ($18K/person)', urgency: 'Medium', benefit: 'Reduce taxable estate annually' },
+            { strategy: 'Survivor pension election', urgency: 'Already elected', benefit: `50% pension to ${inputs.spouseName}` },
+            { strategy: 'Beneficiary designation review', urgency: 'Review now', benefit: 'TSP, IRA, FEGLI — keep current' },
+          ].map(item => (
+            <div key={item.strategy} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{item.strategy}</span>
+                <span style={{ fontSize: 11, background: isDark ? 'rgba(201,168,76,0.15)' : '#FFFBEB', color: 'var(--warning)', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>{item.urgency}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{item.benefit}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GlossaryView({ isDark }) {
+  const t = isDark ? 'dark' : 'light';
+  const terms = [
+    { term: 'FERS', def: 'Federal Employees Retirement System. The primary retirement system for federal employees hired after 1986, combining a defined-benefit pension, Social Security, and TSP.' },
+    { term: 'TSP', def: 'Thrift Savings Plan. The federal equivalent of a 401(k). Offers Traditional (pre-tax) and Roth (after-tax) options. 2026 max: $23,500 (+$7,500 catch-up if 50+).' },
+    { term: 'High-3', def: 'The average of your highest 36 consecutive months of basic pay. Used to calculate your FERS pension.' },
+    { term: 'FEHB', def: 'Federal Employees Health Benefits. FERS retirees with 5+ years of coverage can carry FEHB into retirement — no gap to Medicare needed.' },
+    { term: 'IRMAA', def: 'Income-Related Monthly Adjustment Amount. Surcharge on Medicare Part B/D for higher-income retirees. Based on MAGI from 2 years prior.' },
+    { term: 'RMD', def: 'Required Minimum Distribution. Mandatory annual withdrawals from Traditional TSP/IRA starting at age 73. Amount = balance ÷ life expectancy factor.' },
+    { term: 'MRA', def: 'Minimum Retirement Age. Earliest age a FERS employee can retire. Ranges 55–57 depending on birth year.' },
+    { term: 'FIRE Number', def: 'Portfolio size to sustain retirement: annual spending ÷ safe withdrawal rate. At 4% SWR: $80K ÷ 0.04 = $2M.' },
+    { term: 'Safe Withdrawal Rate (SWR)', def: 'Percentage of portfolio withdrawn annually while maintaining high probability of not depleting funds. 4% traditional; 3.5% for longer retirements.' },
+    { term: 'Monte Carlo', def: 'Simulation running hundreds of random return sequences to estimate probability a portfolio survives a given retirement period.' },
+    { term: 'FEGLI', def: 'Federal Employees Group Life Insurance. Basic = 1x salary + $2,000. Premiums rise sharply after age 50.' },
+    { term: 'Survivor Election', def: 'At retirement, FERS employee can elect: Full (50% pension to survivor, 10% reduction) or Partial (25% pension, 5% reduction).' },
+    { term: 'Backdoor Roth IRA', def: 'Strategy for high earners: contribute to Traditional IRA (non-deductible), then convert to Roth. 2026 max: $7,000 ($8,000 if 50+).' },
+    { term: 'COLA', def: 'Cost-of-Living Adjustment. Annual pension/SS increase. FERS COLA is reduced: CPI-1% if CPI ≤ 3%.' },
+  ];
+  const [filter, setFilter] = useState('');
+  const filtered = terms.filter(t => !filter || t.term.toLowerCase().includes(filter.toLowerCase()) || t.def.toLowerCase().includes(filter.toLowerCase()));
+  return (
+    <div>
+      <SectionHeader title="Glossary" subtitle="Key terms for federal retirement planning" theme={t} />
+      <div style={{ marginBottom: 16, maxWidth: 400 }}><Field label="Search" value={filter} onChange={setFilter} theme={t} /></div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {filtered.map(term => (
+          <div key={term.term} style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '14px 18px' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent2)', marginBottom: 4 }}>{term.term}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, textWrap: 'pretty' }}>{term.def}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// PRESET PROFILES
+// ════════════════════════════════════════════════════════════════
+
+const PRESETS = [
+  {
+    id: 'gs12_mid',
+    label: 'GS-12 Mid-Career',
+    subtitle: 'Age 42 · 14 yrs service · retiring at 57 (MRA)',
+    badge: 'Accumulating',
+    badgeColor: '#4A90D9',
+    description: 'A GS-12 Step 5 employee in the DC metro area, 14 years of service, dual income household. On track for MRA+30 retirement at 57 with full unreduced pension.',
+    highlights: ['MRA retirement at 57 (no penalty)', '$2.4M FIRE number', 'Roth split recommended at 22% marginal rate', 'FEHB bridge 57→65'],
+    inputs: {
+      name: 'GS-12 Employee', spouseName: 'Spouse',
+      currentAge: 42, retireAge: 57, deathAge: 90, spouseDeathAge: 90,
+      filingStatus: 'MFJ', retireState: 'Virginia',
+      salary: 98000, spouseSalary: 72000,
+      tradBalance: 180000, rothBalance: 45000, brokerBalance: 10000,
+      spouseTradBalance: 80000, spouseRothBalance: 20000,
+      annualTSP: 23500, tspRothPct: 0.5,
+      annualBackdoorRoth: 7000, spouseBackdoorRoth: 7000,
+      realReturn: 0.03,
+      high3: 98000, yearsAtRetire: 29, survivorElection: 10, sickLeaveHours: 500,
+      ssPIA: 26000, ssClaimAge: 67, spousePIA: 18000, spouseSsClaimAge: 67,
+      retireSpending: 90000,
+      goGoFactor: 1.0, slowGoFactor: 0.8, noGoFactor: 0.7,
+      slowGoAge: 75, noGoAge: 85, ltcStartAge: 88, ltcAmount: 60000,
+      fehbAnnual: 7200, medicareMonthly: 202.90, partDMonthly: 35, medigapMonthly: 200, oopAnnual: 3000, hcInflation: 0.055,
+      homeValue: 550000, mortgageBalance: 320000, cashLiquid: 35000, hsaBalance: 12000, swr: 0.04,
+    }
+  },
+  {
+    id: 'ses_near',
+    label: 'SES Near-Retirement',
+    subtitle: 'Age 58 · 30 yrs service · retiring at 62',
+    badge: 'Pre-Retire',
+    badgeColor: '#C9A84C',
+    description: 'Senior Executive Service employee with 30 years of service, planning a full-pension retirement at 62 with the 1.1% multiplier. Large TSP balance, significant IRMAA risk at 73.',
+    highlights: ['1.1% multiplier (62 + 20yr)', '$72K gross pension', 'IRMAA exposure — Roth conversion window now', 'RMD at 73: est. $32K+'],
+    inputs: {
+      name: 'SES Employee', spouseName: 'Spouse',
+      currentAge: 58, retireAge: 62, deathAge: 92, spouseDeathAge: 90,
+      filingStatus: 'MFJ', retireState: 'Maryland',
+      salary: 195000, spouseSalary: 0,
+      tradBalance: 820000, rothBalance: 95000, brokerBalance: 120000,
+      spouseTradBalance: 0, spouseRothBalance: 0,
+      annualTSP: 31000, tspRothPct: 0.3,
+      annualBackdoorRoth: 8000, spouseBackdoorRoth: 0,
+      realReturn: 0.03,
+      high3: 195000, yearsAtRetire: 34, survivorElection: 10, sickLeaveHours: 1800,
+      ssPIA: 38000, ssClaimAge: 70, spousePIA: 22000, spouseSsClaimAge: 67,
+      retireSpending: 120000,
+      goGoFactor: 1.1, slowGoFactor: 0.85, noGoFactor: 0.70,
+      slowGoAge: 76, noGoAge: 86, ltcStartAge: 88, ltcAmount: 90000,
+      fehbAnnual: 9600, medicareMonthly: 202.90, partDMonthly: 35, medigapMonthly: 220, oopAnnual: 4000, hcInflation: 0.055,
+      homeValue: 980000, mortgageBalance: 0, cashLiquid: 80000, hsaBalance: 48000, swr: 0.035,
+    }
+  },
+  {
+    id: 'mra10',
+    label: 'MRA+10 Early Retiree',
+    subtitle: 'Age 57 · 12 yrs service · voluntary early retirement',
+    badge: 'Early Out',
+    badgeColor: '#E05353',
+    description: 'Employee who qualifies for MRA+10 voluntary early retirement. Takes a significant pension penalty (5% per year under 62) but values freedom. Must bridge healthcare and fund portfolio gap.',
+    highlights: ['25% pension penalty (5 yrs × 5%)', 'Can defer pension to 62 to avoid penalty', 'Portfolio must cover full gap until 62', 'FEHB bridge critical'],
+    inputs: {
+      name: 'Early Retiree', spouseName: 'Spouse',
+      currentAge: 57, retireAge: 57, deathAge: 90, spouseDeathAge: 90,
+      filingStatus: 'MFJ', retireState: 'Florida',
+      salary: 82000, spouseSalary: 55000,
+      tradBalance: 210000, rothBalance: 65000, brokerBalance: 30000,
+      spouseTradBalance: 110000, spouseRothBalance: 30000,
+      annualTSP: 23500, tspRothPct: 0.6,
+      annualBackdoorRoth: 7000, spouseBackdoorRoth: 7000,
+      realReturn: 0.03,
+      high3: 82000, yearsAtRetire: 12, survivorElection: 5, sickLeaveHours: 200,
+      ssPIA: 22000, ssClaimAge: 67, spousePIA: 16000, spouseSsClaimAge: 67,
+      retireSpending: 72000,
+      goGoFactor: 1.05, slowGoFactor: 0.8, noGoFactor: 0.7,
+      slowGoAge: 75, noGoAge: 85, ltcStartAge: 85, ltcAmount: 60000,
+      fehbAnnual: 7200, medicareMonthly: 202.90, partDMonthly: 35, medigapMonthly: 200, oopAnnual: 3500, hcInflation: 0.055,
+      homeValue: 420000, mortgageBalance: 180000, cashLiquid: 45000, hsaBalance: 8000, swr: 0.04,
+    }
+  },
+  {
+    id: 'dual_federal',
+    label: 'Dual Federal Couple',
+    subtitle: 'Ages 48 & 46 · Both FERS · retiring together at 60',
+    badge: 'Dual Income',
+    badgeColor: '#2E7D32',
+    description: 'Both spouses are federal employees with independent FERS pensions. Combined income floor will be exceptionally strong — primary risk is IRMAA and RMD accumulation.',
+    highlights: ['Two FERS pensions = strong income floor', 'Combined SS + pension may exceed spending', 'High IRMAA risk — aggressive Roth conversions needed', 'Survivor planning: each retains own pension'],
+    inputs: {
+      name: 'Fed Employee 1', spouseName: 'Fed Employee 2',
+      currentAge: 48, retireAge: 60, deathAge: 92, spouseDeathAge: 92,
+      filingStatus: 'MFJ', retireState: 'Pennsylvania',
+      salary: 115000, spouseSalary: 105000,
+      tradBalance: 280000, rothBalance: 80000, brokerBalance: 0,
+      spouseTradBalance: 240000, spouseRothBalance: 60000,
+      annualTSP: 23500, tspRothPct: 0.4,
+      annualBackdoorRoth: 7000, spouseBackdoorRoth: 7000,
+      realReturn: 0.03,
+      high3: 115000, yearsAtRetire: 26, survivorElection: 10, sickLeaveHours: 800,
+      ssPIA: 28000, ssClaimAge: 67, spousePIA: 26000, spouseSsClaimAge: 67,
+      retireSpending: 95000,
+      goGoFactor: 1.0, slowGoFactor: 0.8, noGoFactor: 0.7,
+      slowGoAge: 75, noGoAge: 85, ltcStartAge: 88, ltcAmount: 80000,
+      fehbAnnual: 7200, medicareMonthly: 202.90, partDMonthly: 35, medigapMonthly: 200, oopAnnual: 3000, hcInflation: 0.055,
+      homeValue: 600000, mortgageBalance: 250000, cashLiquid: 50000, hsaBalance: 22000, swr: 0.04,
+    }
+  },
+  {
+    id: 'single_fed',
+    label: 'Single Federal Employee',
+    subtitle: 'Age 52 · 22 yrs service · retiring at 60',
+    badge: 'Single',
+    badgeColor: '#8B5CF6',
+    description: 'Single FERS employee with no survivor election needed. Higher marginal tax brackets in retirement (Single filer), but no spousal complexity. Focused on maximizing SS and managing RMD brackets.',
+    highlights: ['Single filer — higher brackets at 73', 'No survivor election (saves 10% pension)', 'Roth conversion critical — IRMAA threshold lower for Single', 'SS at 70 recommended (no spousal coordination)'],
+    inputs: {
+      name: 'Single Fed', spouseName: '',
+      currentAge: 52, retireAge: 60, deathAge: 90, spouseDeathAge: 90,
+      filingStatus: 'Single', retireState: 'Texas',
+      salary: 105000, spouseSalary: 0,
+      tradBalance: 340000, rothBalance: 55000, brokerBalance: 25000,
+      spouseTradBalance: 0, spouseRothBalance: 0,
+      annualTSP: 31000, tspRothPct: 0.5,
+      annualBackdoorRoth: 8000, spouseBackdoorRoth: 0,
+      realReturn: 0.03,
+      high3: 105000, yearsAtRetire: 30, survivorElection: 0, sickLeaveHours: 1200,
+      ssPIA: 30000, ssClaimAge: 70, spousePIA: 0, spouseSsClaimAge: 67,
+      retireSpending: 65000,
+      goGoFactor: 1.0, slowGoFactor: 0.8, noGoFactor: 0.7,
+      slowGoAge: 75, noGoAge: 85, ltcStartAge: 85, ltcAmount: 70000,
+      fehbAnnual: 5400, medicareMonthly: 202.90, partDMonthly: 35, medigapMonthly: 190, oopAnnual: 2500, hcInflation: 0.055,
+      homeValue: 380000, mortgageBalance: 120000, cashLiquid: 40000, hsaBalance: 18000, swr: 0.04,
+    }
+  },
+  {
+    id: 'law_enforcement',
+    label: 'Law Enforcement / 6c',
+    subtitle: 'Age 47 · 20 yrs service · mandatory retire at 57',
+    badge: 'LEO / FF',
+    badgeColor: '#1B3A6B',
+    description: 'Law enforcement officer (6c retirement) under FERS Special category. Mandatory retirement at 57 (or 20 years), 1.7% multiplier for first 20 years + 1% thereafter. FERS Supplement bridges to age 62.',
+    highlights: ['1.7% multiplier for first 20 LEO years', 'Mandatory retire at 57 — no penalty', 'FERS Supplement ~$22K/yr until 62', 'Early Medicare bridge 57→65'],
+    inputs: {
+      name: 'LEO / 6c Employee', spouseName: 'Spouse',
+      currentAge: 47, retireAge: 57, deathAge: 88, spouseDeathAge: 90,
+      filingStatus: 'MFJ', retireState: 'Virginia',
+      salary: 105000, spouseSalary: 62000,
+      tradBalance: 240000, rothBalance: 70000, brokerBalance: 15000,
+      spouseTradBalance: 60000, spouseRothBalance: 25000,
+      annualTSP: 23500, tspRothPct: 0.5,
+      annualBackdoorRoth: 7000, spouseBackdoorRoth: 7000,
+      realReturn: 0.03,
+      high3: 105000, yearsAtRetire: 20, survivorElection: 10, sickLeaveHours: 600,
+      ssPIA: 24000, ssClaimAge: 62, spousePIA: 20000, spouseSsClaimAge: 67,
+      retireSpending: 85000,
+      goGoFactor: 1.05, slowGoFactor: 0.8, noGoFactor: 0.65,
+      slowGoAge: 74, noGoAge: 84, ltcStartAge: 82, ltcAmount: 70000,
+      fehbAnnual: 7200, medicareMonthly: 202.90, partDMonthly: 35, medigapMonthly: 200, oopAnnual: 3500, hcInflation: 0.055,
+      homeValue: 480000, mortgageBalance: 200000, cashLiquid: 30000, hsaBalance: 5000, swr: 0.04,
+      multiplierOverride: 0.017,
+    }
+  },
+];
+
+function PresetsView({ inputs, setInputs, isDark, setSection }) {
+  const t = isDark ? 'dark' : 'light';
+  const [preview, setPreview] = useState(null);
+  const [loaded, setLoaded] = useState(null);
+
+  const previewResults = useMemo(() => {
+    if (!preview) return null;
+    try { return window.FEDEngine.compute(preview.inputs); }
+    catch { return null; }
+  }, [preview]);
+
+  function applyPreset(preset) {
+    setInputs({ ...DEFAULTS, ...preset.inputs });
+    setLoaded(preset.id);
+  }
+
+  return (
+    <div>
+      <SectionHeader
+        title="Preset Profiles"
+        subtitle="Quick-load common federal retirement scenarios — a starting point, not a final plan"
+        theme={t}
+      />
+
+      <Alert type="info" theme={t}>
+        Presets load realistic sample data for common federal employee situations. All values are editable — use Quick Start or Full Calculator to customize after loading.
+      </Alert>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginTop: 20 }}>
+        {PRESETS.map(preset => {
+          const isLoaded = loaded === preset.id;
+          const isPreviewing = preview?.id === preset.id;
+          return (
+            <div key={preset.id} style={{
+              background: 'var(--card)',
+              border: `1px solid ${isPreviewing ? 'var(--accent2)' : isLoaded ? 'var(--success)' : 'var(--card-border)'}`,
+              borderRadius: 10, overflow: 'hidden',
+              transition: 'border-color 0.2s',
+              display: 'flex', flexDirection: 'column',
+            }}>
+              {/* Card header */}
+              <div style={{
+                padding: '16px 18px 12px',
+                borderBottom: '1px solid var(--card-border)',
+                background: isPreviewing ? (isDark ? 'rgba(201,168,76,0.06)' : 'rgba(27,58,107,0.04)') : 'transparent',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2 }}>{preset.label}</div>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, flexShrink: 0, marginLeft: 8,
+                    background: preset.badgeColor + '20', color: preset.badgeColor, border: `1px solid ${preset.badgeColor}40`,
+                  }}>{preset.badge}</span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{preset.subtitle}</div>
+              </div>
+
+              {/* Description */}
+              <div style={{ padding: '12px 18px', flex: 1 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12, textWrap: 'pretty' }}>
+                  {preset.description}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {preset.highlights.map((h, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: 12 }}>
+                      <span style={{ color: 'var(--accent2)', flexShrink: 0, marginTop: 1 }}>›</span>
+                      <span style={{ color: 'var(--text-muted)', lineHeight: 1.4 }}>{h}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div style={{ padding: '12px 18px', borderTop: '1px solid var(--card-border)', display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setPreview(isPreviewing ? null : preset)}
+                  style={{
+                    flex: 1, padding: '7px 0', borderRadius: 6, border: '1px solid var(--border)',
+                    background: isPreviewing ? (isDark ? 'rgba(255,255,255,0.08)' : '#E8EDF5') : 'transparent',
+                    color: 'var(--text-muted)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  {isPreviewing ? 'Hide preview' : 'Preview'}
+                </button>
+                <button
+                  onClick={() => { applyPreset(preset); setSection('dashboard'); }}
+                  style={{
+                    flex: 1, padding: '7px 0', borderRadius: 6, border: 'none',
+                    background: isLoaded ? 'var(--success)' : 'var(--accent2)',
+                    color: isLoaded ? '#FFF' : '#0F1F3C',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'background 0.2s',
+                  }}
+                >
+                  {isLoaded ? '✓ Loaded' : 'Load profile'}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Preview panel */}
+      {preview && previewResults && (
+        <div style={{
+          marginTop: 24, background: 'var(--card)', border: '2px solid var(--accent2)',
+          borderRadius: 12, padding: 24,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Preview: {preview.label}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{preview.subtitle}</div>
+            </div>
+            <button onClick={() => { applyPreset(preview); setSection('dashboard'); }} style={{
+              padding: '9px 24px', borderRadius: 7, border: 'none', cursor: 'pointer',
+              background: 'var(--accent2)', color: '#0F1F3C', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+            }}>Load this profile →</button>
+          </div>
+
+          {/* Key metrics */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+            {[
+              { label: 'Net Worth', value: fmt.currency(previewResults.netWorth, true) },
+              { label: 'Income Floor', value: fmt.currency(previewResults.incomeFloor, true) + '/yr' },
+              { label: 'Net Pension', value: fmt.currency(previewResults.pension?.net, true) + '/yr' },
+              { label: 'FIRE Readiness', value: fmt.pct(previewResults.fireReadiness) },
+              { label: 'MC Success', value: `${previewResults.mcSuccess}%` },
+            ].map(m => (
+              <MetricCard key={m.label} label={m.label} value={m.value} theme={t} />
+            ))}
+          </div>
+
+          {/* Comparison table */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Income at Retirement</div>
+              {[
+                { label: 'FERS pension (net)', value: fmt.currency(previewResults.pension?.net) + '/yr' },
+                { label: 'Social Security (you)', value: fmt.currency(previewResults.yourSS) + '/yr' },
+                { label: 'Spouse SS', value: previewResults.spouseSS > 0 ? fmt.currency(previewResults.spouseSS) + '/yr' : '—' },
+                { label: 'Total income floor', value: fmt.currency(previewResults.incomeFloor) + '/yr' },
+                { label: 'Target spending', value: fmt.currency(preview.inputs.retireSpending) + '/yr' },
+                { label: 'Portfolio gap', value: fmt.currency(Math.max(0, preview.inputs.retireSpending - previewResults.incomeFloor)) + '/yr' },
+              ].map(item => (
+                <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Portfolio at Retirement</div>
+              {[
+                { label: 'Traditional', value: fmt.currency(previewResults.tradAtRetire, true) },
+                { label: 'Roth', value: fmt.currency(previewResults.rothAtRetire, true) },
+                { label: 'Total investable', value: fmt.currency(previewResults.totalAtRetire, true) },
+                { label: 'FIRE number', value: fmt.currency(previewResults.fireNum, true) },
+                { label: 'FIRE readiness', value: fmt.pct(previewResults.fireReadiness) },
+                { label: 'RMD at 73', value: fmt.currency(previewResults.rmdAt73) },
+              ].map(item => (
+                <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {previewResults.fireReadiness < 1.0 && (
+            <Alert type="warning" theme={t} style={{ marginTop: 16 }}>
+              This profile is projected at {fmt.pct(previewResults.fireReadiness)} of FIRE target at retirement. Consider adjusting contributions or spending in the calculator.
+            </Alert>
+          )}
+          {previewResults.fireReadiness >= 1.0 && (
+            <Alert type="success" theme={t} style={{ marginTop: 16 }}>
+              This profile is fully funded at retirement ({fmt.pct(previewResults.fireReadiness)} of FIRE target). {previewResults.mcSuccess}% Monte Carlo success rate.
+            </Alert>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
